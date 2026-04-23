@@ -28,19 +28,6 @@ const Register = {
       ).orderBy("r.id")
   },
 
-  findMyRegistersWithShareCount: async (userId) => {
-    return db("registers as r")
-      .leftJoin("sharing as s", "r.id", "s.register_id")
-      .where("r.creator_id", userId)
-      .groupBy("r.id")
-      .select(
-        "r.id",
-        "r.title",
-        "r.status",
-        db.raw("COUNT(s.user_id) as share_count"),
-      );
-  },
-
   updateRegister: async (id, register) => {
     const [updatedRegister] = await db("registers")
       .where({ id })
