@@ -130,10 +130,4 @@ Com as dependências instaladas, o banco importado e o arquivo `.env` configurad
 node cli.js
 ```
 
-Ou, caso exista um script configurado no `package.json`, execute:
-
-```bash
-npm start
-```
-
 Após iniciar, o sistema exibirá um menu no terminal com opções como Usuários, Categorias, Registros, Compartilhamento, Execução, Relatórios e Sair. Utilize as setas do teclado para navegar entre as opções e pressione Enter para selecionar.
