@@ -16,8 +16,8 @@ const registerSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "completed"],
-    default: "pending",
+    enum: ["pendente", "completo"],
+    default: "pendente",
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,

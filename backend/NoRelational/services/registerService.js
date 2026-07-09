@@ -21,27 +21,25 @@ const registerService = {
 
     const register = await Register.create({
       title: data.title.trim(),
-      description: data.description || '',
+      description: data.description || "",
       dueDate: data.dueDate || undefined,
-      status: 'pendente',
-      userId: currentUserId,
-      creatorId: currentUserId,
+      status: "pendente",
+      userId: getCurrentUserId(),
+      creatorId: getCurrentUserId(),
       categoryId: asObjectId(data.categoryId) || undefined,
     });
 
-    return register;
+    return Register.findById(register._id).populate("categoryId", "name");
   },
 
   async getMyRegisters() {
-    const currentUserId = getCurrentUserId();
-
-    return Register.find({ creatorId: currentUserId })
+    return Register.find({ creatorId: getCurrentUserId() })
       .sort({ createdAt: -1 })
-      .populate('categoryId', 'name');
+      .populate("categoryId", "name");
   },
 
   async findRegisterById(id) {
-    return Register.findById(id).populate('categoryId', 'name');
+    return Register.findById(id).populate("categoryId", "name");
   },
 
   async isOwner(registerId) {
