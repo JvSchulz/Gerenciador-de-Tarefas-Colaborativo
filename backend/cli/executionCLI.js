@@ -29,13 +29,13 @@ export async function executionMenu() {
 }
 
 async function executeRegisterCLI() {
-  const registerId = await input({
-    message: 'ID do registro:',
+  const registerTitle = await input({
+    message: 'Nome do Registro:',
     validate: (v) => v.trim() !== '' || 'Obrigatório',
   });
 
   try {
-    const result = await executionService.executeRegister(registerId);
+    const result = await executionService.executeRegister(registerTitle);
     console.log(result.message);
   } catch (err) {
     console.log('Erro:', err.message);

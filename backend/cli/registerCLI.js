@@ -97,9 +97,6 @@ async function createRegisterCLI() {
 
     const categoryName = register.categoryId?.name || "Sem categoria";
 
-    console.log(register.categoryId?.name);
-
-
     console.log(`Registro criado com id ${register._id}.`);
     console.log(`Título: ${register.title}`);
     console.log(`Categoria: ${categoryName}`);

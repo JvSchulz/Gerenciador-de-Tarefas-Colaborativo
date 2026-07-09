@@ -30,7 +30,7 @@ const sharingService = {
     }
 
     if (register.creatorId.toString() === targetUserId) {
-      throw new Error('Não é possível compartilhar com você mesmo.');
+      throw new Error("Não é possível compartilhar com você mesmo.");
     }
 
     const targetUser = await User.findById(targetUserId);
@@ -70,7 +70,13 @@ const sharingService = {
   async getMySharedRegistersWithUsers() {
     const currentUserId = getCurrentUserId();
 
-    return Sharing.find({ 'registerId.creatorId': currentUserId })
+    const owned = await Register.find({ creatorId: currentUserId }).distinct('_id');
+
+    if (owned.length === 0) {
+      return [];
+    }
+
+    return Sharing.find({ registerId: { $in: owned } })
       .populate('registerId', 'title status')
       .populate('userId', 'name email');
   },

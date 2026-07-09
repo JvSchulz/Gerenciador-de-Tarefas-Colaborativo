@@ -4,10 +4,10 @@ import Execution from '../models/executionModel.js';
 import { getCurrentUserId } from './currentUser.js';
 
 const executionService = {
-  async executeRegister(registerId) {
+  async executeRegister(registerTitle) {
     const currentUserId = getCurrentUserId();
 
-    const register = await Register.findById(registerId);
+    const register = await Register.findOne({ title: registerTitle.trim() });
 
     if (!register) {
       throw new Error('Registro não encontrado.');
@@ -15,7 +15,7 @@ const executionService = {
 
     const isOwner = register.creatorId.toString() === currentUserId;
     const shared = await Sharing.findOne({
-      registerId,
+      registerId: register._id,
       userId: currentUserId,
     });
 
@@ -26,14 +26,14 @@ const executionService = {
     const newStatus = register.status === 'pendente' ? 'concluido' : 'pendente';
 
     const updated = await Register.findByIdAndUpdate(
-      registerId,
+      register._id,
       { status: newStatus },
       { new: true }
     );
 
     await Execution.create({
       userId: currentUserId,
-      registerId,
+      registerId: register._id,
       actionType: 'update',
     });
 
