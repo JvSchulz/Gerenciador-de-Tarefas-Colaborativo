@@ -1,73 +1,89 @@
 // cli/registerCLI.js
-import { select, input } from "@inquirer/prompts";
-import registerService from "../Relational/services/registerService.js";
+import { select, input } from '@inquirer/prompts';
+import registerService from '../NoRelational/services/registerService.js';
+import categoryService from '../NoRelational/services/categoryService.js';
 
 export async function registerMenu() {
   const action = await select({
-    message: "Registros:",
+    message: 'Registros:',
     choices: [
-      { name: "Criar registro", value: "create" },
-      { name: "Listar meus registros", value: "list" },
-      { name: "Atualizar registro", value: "update" },
-      { name: "Deletar registro", value: "delete" },
-      { name: "Voltar", value: "back" },
+      { name: 'Criar registro', value: 'create' },
+      { name: 'Listar meus registros', value: 'list' },
+      { name: 'Atualizar registro', value: 'update' },
+      { name: 'Deletar registro', value: 'delete' },
+      { name: 'Voltar', value: 'back' },
     ],
   });
 
   switch (action) {
-    case "create":
+    case 'create':
       await createRegisterCLI();
       break;
 
-    case "list":
+    case 'list':
       await listRegistersCLI();
       break;
 
-    case "update":
+    case 'update':
       await updateRegisterCLI();
       break;
 
-    case "delete":
+    case 'delete':
       await deleteRegisterCLI();
       break;
 
-    case "back":
+    case 'back':
       return;
   }
 
   return registerMenu();
 }
 
+function formatDate(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (isNaN(date.getTime())) return '';
+
+  return date.toISOString().slice(0, 10);
+}
+
 async function createRegisterCLI() {
   const title = await input({
-    message: "Título:",
-    validate: (v) => v.trim() !== "" || "Obrigatório",
+    message: 'Título:',
+    validate: (v) => v.trim() !== '' || 'Obrigatório',
   });
 
   const description = await input({
-    message: "Descrição:",
+    message: 'Descrição:',
   });
 
-  const category_id = Number(
-    await input({
-      message: "ID da categoria (opcional):",
-      validate: (v) => v === "" || !isNaN(v) || "Número inválido",
-    }),
-  );
+  const category = await select({
+    message: 'Categoria:',
+    choices: [
+      { name: 'Sem categoria', value: '' },
+      ...(await categoryService.listCategories()).map((item) => ({
+        name: item.name,
+        value: item._id.toString(),
+      })),
+    ],
+  });
 
-  const due_date = await input({
-    message: "Prazo (opcional) - formato YYYY-MM-DD:",
+  const dueDate = await input({
+    message: 'Prazo (opcional) - formato YYYY-MM-DD:',
     validate: (v) => {
-      if (v.trim() === "") return true;
+      if (v.trim() === '') return true;
 
-      const parts = v.split("-");
-      if (parts.length !== 3) return "Use YYYY-MM-DD";
+      const match = /^\d{4}-\d{2}-\d{2}$/.test(v.trim());
 
-      const [year, month, day] = parts;
+      if (!match) return 'Use YYYY-MM-DD';
 
-      if (isNaN(year) || isNaN(month) || isNaN(day)) {
-        return "Data inválida";
-      }
+      const [year, month, day] = v.trim().split('-').map(Number);
+
+      const date = new Date(year, month - 1, day);
+
+      if (isNaN(date.getTime())) return 'Data inválida';
 
       return true;
     },
@@ -77,82 +93,132 @@ async function createRegisterCLI() {
     const register = await registerService.createRegister({
       title,
       description,
-      category_id: category_id ?? null,
-      due_date
+      categoryId: category || undefined,
+      dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : undefined,
     });
 
-    console.log("Criado:", register);
+    const categoryName = register.categoryId?.name || 'Sem categoria';
+
+    console.log(`Registro criado com id ${register._id}.`);
+    console.log(`Título: ${register.title}`);
+    console.log(`Categoria: ${categoryName}`);
+    console.log(`Prazo: ${formatDate(register.dueDate) || '-'}`);
+    console.log(`Status: ${register.status}`);
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function listRegistersCLI() {
   try {
     const registers = await registerService.getMyRegisters();
-    console.table(registers);
+
+    if (registers.length === 0) {
+      console.log('Nenhum registro encontrado.');
+      return;
+    }
+
+    console.table(
+      registers.map((register) => ({
+        id: register._id.toString(),
+        titulo: register.title,
+        status: register.status,
+        categoria: register.categoryId?.name || '',
+        prazo: formatDate(register.dueDate),
+      }))
+    );
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function updateRegisterCLI() {
-  const id = Number(
-    await input({
-      message: "ID do registro:",
-      validate: (v) => !isNaN(v) || "Número inválido",
-    }),
-  );
-
   const title = await input({
-    message: "Novo título (opcional):",
+    message: 'Título do registro:',
+    validate: (v) => v.trim() !== '' || 'Obrigatório',
+  });
+
+  const newTitle = await input({
+    message: 'Novo título (opcional):',
   });
 
   const description = await input({
-    message: "Nova descrição (opcional):",
+    message: 'Nova descrição (opcional):',
   });
 
-  const category_id = await input({
-    message: "Novo ID da categoria (opcional):",
-    validate: (v) => v === "" || !isNaN(v) || "Número inválido",
+  const status = await select({
+    message: 'Novo status (opcional):',
+    choices: [
+      { name: 'Manter atual', value: '' },
+      { name: 'Pendente', value: 'pendente' },
+      { name: 'Concluído', value: 'concluido' },
+    ],
   });
 
-  const fields = {};
+  const category = await select({
+    message: 'Nova categoria (opcional):',
+    choices: [
+      { name: 'Manter atual', value: '' },
+      ...(await categoryService.listCategories()).map((item) => ({
+        name: item.name,
+        value: item._id.toString(),
+      })),
+    ],
+  });
 
-  if (title.trim() !== "") {
-    fields.title = title.trim();
-  }
+  const dueDate = await input({
+    message: 'Novo prazo (opcional) - formato YYYY-MM-DD:',
+    validate: (v) => {
+      if (v.trim() === '') return true;
 
-  if (description.trim() !== "") {
-    fields.description = description.trim();
-  }
+      const match = /^\d{4}-\d{2}-\d{2}$/.test(v.trim());
 
-  if (category_id !== "") {
-    fields.category_id = Number(category_id);
-  }
+      if (!match) return 'Use YYYY-MM-DD';
 
-  console.log(fields)
+      const [year, month, day] = v.trim().split('-').map(Number);
+
+      const date = new Date(year, month - 1, day);
+
+      if (isNaN(date.getTime())) return 'Data inválida';
+
+      return true;
+    },
+  });
+
+  const data = {};
+
+  if (newTitle.trim() !== '') data.title = newTitle.trim();
+  if (description.trim() !== '') data.description = description.trim();
+  if (status) data.status = status;
+  if (category !== undefined) data.categoryId = category || undefined;
+  if (dueDate) data.dueDate = `${dueDate}T00:00:00.000Z`;
+  else if (dueDate === '') data.dueDate = '';
 
   try {
-    const updated = await registerService.updateRegister(id, fields);
-    console.log("Atualizado:", updated);
+    const updated = await registerService.updateRegisterByTitle(title, data);
+
+    const categoryName = updated.categoryId?.name || 'Sem categoria';
+
+    console.log(`Registro atualizado ${updated._id}.`);
+    console.log(`Título: ${updated.title}`);
+    console.log(`Categoria: ${categoryName}`);
+    console.log(`Prazo: ${formatDate(updated.dueDate) || '-'}`);
+    console.log(`Status: ${updated.status}`);
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function deleteRegisterCLI() {
-  const id = Number(
-    await input({
-      message: "ID do registro:",
-      validate: (v) => !isNaN(v) || "Número inválido",
-    }),
-  );
+  const title = await input({
+    message: 'Título do registro:',
+    validate: (v) => v.trim() !== '' || 'Obrigatório',
+  });
 
   try {
-    const result = await registerService.deleteRegister(id);
+    const result = await registerService.deleteRegisterByTitle(title);
     console.log(result.message);
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }

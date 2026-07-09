@@ -1,37 +1,37 @@
 // cli/categoryCLI.js
-import { select, input } from "@inquirer/prompts";
-import categoryService from "../Relational/services/categoryService.js";
+import { select, input } from '@inquirer/prompts';
+import categoryService from '../NoRelational/services/categoryService.js';
 
 export async function categoryMenu() {
   const action = await select({
-    message: "Categorias:",
+    message: 'Categorias:',
     choices: [
-      { name: "Criar", value: "create" },
-      { name: "Listar", value: "list" },
-      { name: "Atualizar", value: "update" },
-      { name: "Deletar", value: "delete" },
-      { name: "Voltar", value: "back" },
+      { name: 'Criar', value: 'create' },
+      { name: 'Listar', value: 'list' },
+      { name: 'Atualizar', value: 'update' },
+      { name: 'Deletar', value: 'delete' },
+      { name: 'Voltar', value: 'back' },
     ],
   });
 
   switch (action) {
-    case "create":
+    case 'create':
       await createCategoryCLI();
       break;
 
-    case "list":
+    case 'list':
       await listCategoriesCLI();
       break;
 
-    case "update":
+    case 'update':
       await updateCategoryCLI();
       break;
 
-    case "delete":
+    case 'delete':
       await deleteCategoryCLI();
       break;
 
-    case "back":
+    case 'back':
       return;
   }
 
@@ -40,60 +40,67 @@ export async function categoryMenu() {
 
 async function createCategoryCLI() {
   const name = await input({
-    message: "Nome da categoria:",
-    validate: (v) => v.trim() !== "" || "Obrigatório",
+    message: 'Nome da categoria:',
+    validate: (v) => v.trim() !== '' || 'Obrigatório',
   });
 
   try {
     const category = await categoryService.createCategory({ name });
-    console.log("Criada:", category);
+    console.log(`Categoria criada ${category._id}: ${category.name}`);
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function listCategoriesCLI() {
   try {
     const categories = await categoryService.listCategories();
-    console.table(categories);
+
+    if (categories.length === 0) {
+      console.log('Nenhuma categoria encontrada.');
+      return;
+    }
+
+    console.table(
+      categories.map((category) => ({
+        id: category._id.toString(),
+        nome: category.name,
+      }))
+    );
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function updateCategoryCLI() {
-  const id = Number(
-    await input({
-      message: "ID da categoria:",
-      validate: (v) => !isNaN(v) || "Número inválido",
-    })
-  );
-
   const name = await input({
-    message: "Novo nome:",
-    validate: (v) => v.trim() !== "" || "Obrigatório",
+    message: 'Nome da categoria:',
+    validate: (v) => v.trim() !== '' || 'Obrigatório',
+  });
+
+  const newName = await input({
+    message: 'Novo nome:',
+    validate: (v) => v.trim() !== '' || 'Obrigatório',
   });
 
   try {
-    const category = await categoryService.updateCategory(id, { name });
-    console.log("Atualizada:", category);
+    const category = await categoryService.updateCategoryByName(name, { name: newName });
+    console.log(`Categoria atualizada ${category._id}: ${category.name}`);
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function deleteCategoryCLI() {
-  const id = Number(
-    await input({
-      message: "ID da categoria:",
-      validate: (v) => !isNaN(v) || "Número inválido",
-    })
-  );
+  const name = await input({
+    message: 'Nome da categoria:',
+    validate: (v) => v.trim() !== '' || 'Obrigatório',
+  });
 
   try {
-    const result = await categoryService.deleteCategory(id);
+    const result = await categoryService.deleteCategoryByName(name);
     console.log(result.message);
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }

@@ -1,37 +1,39 @@
 // cli/sharingCLI.js
-import { select, input } from "@inquirer/prompts";
-import sharingService from "../Relational/services/sharingService.js";
+import { select, input } from '@inquirer/prompts';
+import sharingService from '../NoRelational/services/sharingService.js';
+import registerService from '../NoRelational/services/registerService.js';
+import userService from '../NoRelational/services/userService.js';
 
 export async function sharingMenu() {
   const action = await select({
-    message: "Compartilhamento:",
+    message: 'Compartilhamento:',
     choices: [
-      { name: "Compartilhar registro", value: "share" },
-      { name: "Ver meus registros compartilhados", value: "report" },
-      { name: "Ver compartilhados comigo", value: "list" },
-      { name: "Remover compartilhamento", value: "remove" },
-      { name: "Voltar", value: "back" },
+      { name: 'Compartilhar registro', value: 'share' },
+      { name: 'Registros que compartilhei', value: 'shared_mine' },
+      { name: 'Registros compartilhados comigo', value: 'shared_with_me' },
+      { name: 'Remover compartilhamento', value: 'remove' },
+      { name: 'Voltar', value: 'back' },
     ],
   });
 
   switch (action) {
-    case "share":
+    case 'share':
       await shareRegisterCLI();
       break;
 
-    case "list":
+    case 'shared_with_me':
       await listSharedCLI();
       break;
 
-    case "remove":
-      await removeSharingCLI();
-      break;
-
-    case "report":
+    case 'shared_mine':
       await reportMySharedRegistersCLI();
       break;
 
-    case "back":
+    case 'remove':
+      await removeSharingCLI();
+      break;
+
+    case 'back':
       return;
   }
 
@@ -39,73 +41,139 @@ export async function sharingMenu() {
 }
 
 async function shareRegisterCLI() {
-  const recordId = Number(
-    await input({
-      message: "ID do registro a ser compartilhado:",
-      validate: (v) => !isNaN(v) || "Número inválido",
-    }),
-  );
+  const currentUserId = (await userService.listUsers())[0]?._id?.toString();
 
-  const targetUserId = Number(
-    await input({
-      message: "ID do usuário com quem compartilhar:",
-      validate: (v) => !isNaN(v) || "Número inválido",
-    }),
-  );
+  const registers = await registerService.getMyRegisters();
+
+  if (registers.length === 0) {
+    console.log('Nenhum registro disponível para compartilhar.');
+    return;
+  }
+
+  const register = await select({
+    message: 'Registro:',
+    choices: registers.map((item) => ({
+      name: `${item.title} (${item.status})`,
+      value: item._id.toString(),
+    })),
+  });
+
+  const users = await userService.listUsers();
+
+  const targetUser = await select({
+    message: 'Usuário para compartilhar:',
+    choices: users
+      .filter((item) => item._id.toString() !== currentUserId)
+      .map((item) => ({
+        name: `${item.name} - ${item.email}`,
+        value: item._id.toString(),
+      })),
+  });
 
   const permission = await select({
-    message: "Permissão:",
+    message: 'Permissão:',
     choices: [
-      { name: "Leitura", value: "read" },
-      { name: "Escrita", value: "write" },
+      { name: 'Leitura', value: 'read' },
+      { name: 'Escrita', value: 'write' },
     ],
   });
 
   try {
     const result = await sharingService.shareRegister(
-      recordId,
-      targetUserId,
-      permission,
+      register,
+      targetUser,
+      permission
     );
 
-    console.log("Compartilhado:", result);
+    console.log(`Compartilhado com o usuário ${result.userId}.`);
+    console.log(`Permissão: ${result.permission}`);
+    console.log(`Compartilhado em: ${new Date(result.sharedAt).toISOString()}`);
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function listSharedCLI() {
   try {
     const shared = await sharingService.getSharedWithMe();
-    console.table(shared);
+
+    if (shared.length === 0) {
+      console.log('Nenhum registro compartilhado com você.');
+      return;
+    }
+
+    console.table(
+      shared.map((item) => {
+        const register = item.registerId || {};
+
+        return {
+          idRegistro: register._id?.toString() ?? '',
+          titulo: register.title ?? '',
+          status: register.status ?? '',
+          prazo: register.dueDate
+            ? new Date(register.dueDate).toISOString().slice(0, 10)
+            : '',
+          compartilhadoEm: item.sharedAt
+            ? new Date(item.sharedAt).toISOString().slice(0, 10)
+            : '',
+          permissao: item.permission ?? '',
+          criador: register.creatorId?.name ?? '',
+        };
+      })
+    );
   } catch (err) {
-    console.log("Erro:", err.message);
-  }
-}
-
-async function removeSharingCLI() {
-  const recordId = Number(
-    await input({
-      message: "ID do registro:",
-      validate: (v) => !isNaN(v) || "Número inválido",
-    }),
-  );
-
-  try {
-    const result = await sharingService.removeSharing(recordId);
-
-    console.log(result.message);
-  } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
   }
 }
 
 async function reportMySharedRegistersCLI() {
   try {
-    const data = await sharingService.getMySharedRegistersWithUsers();
+    const items = await sharingService.getMySharedRegistersWithUsers();
 
-    console.table(data);
+    if (items.length === 0) {
+      console.log('Você ainda não compartilhou nenhum registro.');
+      return;
+    }
+
+    console.table(
+      items.map((item) => ({
+        idRegistro: item.registerId?._id?.toString() ?? '',
+        titulo: item.registerId?.title ?? '',
+        status: item.registerId?.status ?? '',
+        compartilhadoEm: item.sharedAt
+          ? new Date(item.sharedAt).toISOString().slice(0, 10)
+          : '',
+        permissao: item.permission ?? '',
+        idUsuario: item.userId?._id?.toString() ?? '',
+        nomeUsuario: item.userId?.name ?? '',
+        emailUsuario: item.userId?.email ?? '',
+      }))
+    );
   } catch (err) {
-    console.log("Erro:", err.message);
+    console.log('Erro:', err.message);
+  }
+}
+
+async function removeSharingCLI() {
+  const registers = await registerService.getMyRegisters();
+
+  if (registers.length === 0) {
+    console.log('Nenhum registro disponível.');
+    return;
+  }
+
+  const register = await select({
+    message: 'Registro:',
+    choices: registers.map((item) => ({
+      name: `${item.title} (${item.status})`,
+      value: item._id.toString(),
+    })),
+  });
+
+  try {
+    const result = await sharingService.removeSharing(register);
+    console.log(result.message);
+  } catch (err) {
+    console.log('Erro:', err.message);
   }
 }
